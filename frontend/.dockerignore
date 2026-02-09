@@ -1,0 +1,16 @@
+.next
+node_modules
+dist
+.cache
+.turbo
+.vercel
+.env.local
+.env
+.git
+.gitignore
+Dockerfile
+docker-compose.*
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+*.log

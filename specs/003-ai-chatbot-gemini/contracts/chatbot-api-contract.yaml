@@ -1,0 +1,247 @@
+# API Contracts for AI-Powered Chatbot
+
+## Chatbot Endpoint
+
+### POST /api/chat
+Processes a user's natural language message and returns an AI-generated response.
+
+**Request**:
+```json
+{
+  "message": "Create a task to buy groceries tomorrow",
+  "session_id": "uuid-string" (optional, creates new session if not provided)
+}
+```
+
+**Response**:
+```json
+{
+  "response": "I've created a task 'buy groceries' for tomorrow.",
+  "session_id": "uuid-string",
+  "intent": "CREATE_TASK",
+  "entities": [
+    {
+      "type": "TITLE",
+      "value": "buy groceries",
+      "confidence": 0.95
+    },
+    {
+      "type": "DATE",
+      "value": "2026-02-09",
+      "confidence": 0.87
+    }
+  ],
+  "tool_used": "create_task",
+  "tool_result": {
+    "success": true,
+    "task_id": "uuid-string"
+  }
+}
+```
+
+**Authentication**: JWT token required in Authorization header
+
+### GET /api/chat/sessions
+Retrieves a list of chat sessions for the authenticated user.
+
+**Request**: None (uses JWT from Authorization header)
+
+**Response**:
+```json
+{
+  "sessions": [
+    {
+      "id": "uuid-string",
+      "title": "Grocery tasks",
+      "created_at": "2026-02-08T10:30:00Z",
+      "updated_at": "2026-02-08T11:45:00Z",
+      "status": "ACTIVE"
+    }
+  ]
+}
+```
+
+### GET /api/chat/session/{session_id}/messages
+Retrieves messages for a specific chat session.
+
+**Request**: None additional (session_id in path, JWT from Authorization header)
+
+**Response**:
+```json
+{
+  "messages": [
+    {
+      "id": "uuid-string",
+      "sender_type": "USER",
+      "content": "Create a task to buy groceries tomorrow",
+      "timestamp": "2026-02-08T10:30:00Z",
+      "metadata": {
+        "intent": "CREATE_TASK",
+        "entities": [
+          {"type": "TITLE", "value": "buy groceries", "confidence": 0.95},
+          {"type": "DATE", "value": "2026-02-09", "confidence": 0.87}
+        ]
+      }
+    },
+    {
+      "id": "uuid-string",
+      "sender_type": "AI",
+      "content": "I've created a task 'buy groceries' for tomorrow.",
+      "timestamp": "2026-02-08T10:30:05Z",
+      "metadata": {
+        "tool_used": "create_task",
+        "tool_result": {"success": true, "task_id": "uuid-string"}
+      }
+    }
+  ]
+}
+```
+
+## Tool Definitions Endpoint
+
+### GET /api/tools
+Retrieves the available tools that the AI can use.
+
+**Request**: None (uses JWT from Authorization header)
+
+**Response**:
+```json
+{
+  "tools": [
+    {
+      "name": "create_task",
+      "description": "Create a new task with the provided details",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string", "description": "Title of the task"},
+          "description": {"type": "string", "description": "Detailed description of the task"},
+          "due_date": {"type": "string", "format": "date", "description": "Due date for the task"},
+          "status": {"type": "string", "enum": ["pending", "in-progress", "completed"]}
+        },
+        "required": ["title"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "task_id": {"type": "string", "description": "ID of the created task"},
+          "message": {"type": "string", "description": "Result message"}
+        }
+      }
+    },
+    {
+      "name": "update_task",
+      "description": "Update an existing task with new details",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {"type": "string", "description": "ID of the task to update"},
+          "title": {"type": "string", "description": "New title of the task"},
+          "description": {"type": "string", "description": "New description of the task"},
+          "due_date": {"type": "string", "format": "date", "description": "New due date for the task"},
+          "status": {"type": "string", "enum": ["pending", "in-progress", "completed"]}
+        },
+        "required": ["task_id"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string", "description": "Result message"}
+        }
+      }
+    },
+    {
+      "name": "delete_task",
+      "description": "Delete an existing task",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {"type": "string", "description": "ID of the task to delete"}
+        },
+        "required": ["task_id"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string", "description": "Result message"}
+        }
+      }
+    },
+    {
+      "name": "list_tasks",
+      "description": "Retrieve a list of tasks based on filters",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string", "enum": ["pending", "in-progress", "completed", "all"]},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+          "offset": {"type": "integer", "minimum": 0}
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"},
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "due_date": {"type": "string", "format": "date"},
+                "status": {"type": "string"}
+              }
+            }
+          },
+          "total_count": {"type": "integer"}
+        }
+      }
+    }
+  ]
+}
+```
+
+## Error Handling
+
+All endpoints return standard error responses:
+
+**400 Bad Request**:
+```json
+{
+  "error": "Invalid input",
+  "message": "Detailed error message",
+  "code": "INVALID_INPUT"
+}
+```
+
+**401 Unauthorized**:
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required",
+  "code": "AUTH_REQUIRED"
+}
+```
+
+**404 Not Found**:
+```json
+{
+  "error": "Not found",
+  "message": "Requested resource not found",
+  "code": "RESOURCE_NOT_FOUND"
+}
+```
+
+**500 Internal Server Error**:
+```json
+{
+  "error": "Internal server error",
+  "message": "An unexpected error occurred",
+  "code": "INTERNAL_ERROR"
+}
+```
